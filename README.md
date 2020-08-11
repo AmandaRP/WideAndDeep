@@ -1,4 +1,4 @@
-Neural Collaborative Filtering
+Wide & Deep Learning
 ================
 
 This is an implementation of Google’s Wide & Deep learning model using
