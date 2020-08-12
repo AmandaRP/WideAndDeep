@@ -54,7 +54,6 @@ test_text_sequence_matrix <- texts_to_sequences(tokenizer, test$description) %>%
 train_text_binary_matrix <- texts_to_matrix(tokenizer, train$description, mode = "binary") #binary best here b/c need to concat with other binary vectors
 test_text_binary_matrix <- texts_to_matrix(tokenizer, test$description, mode = "binary")
 
-
 # Convert wine variety to one-hot vectors
 num_varieties <- length(levels(train$variety))
 variety_tokenizer <- text_tokenizer(num_words = num_varieties) %>% fit_text_tokenizer(train$variety)
@@ -64,11 +63,33 @@ test_variety_binary_matrix <- texts_to_matrix(variety_tokenizer, test$variety, m
 
 # wide:
 
-wide_text_inputs <- layer_input(shape = vocab_size, name = "wide_text_input") 
-wide_variety_inputs  <- layer_input(shape = num_varieties, name = "wide_variety_input") 
-wide_merged_layer <- layer_concatenate(wide_text_inputs, wide_variety_inputs) %>% layer_dense(units = 256, activation = "relu")
+wide_text_input <- layer_input(shape = vocab_size, name = "wide_text_input") 
+wide_variety_input  <- layer_input(shape = num_varieties, name = "wide_variety_input") 
+wide_merged_layer <- layer_concatenate(list(wide_text_input, wide_variety_input)) %>% 
+  layer_dense(units = 256, activation = "relu", name = "wide_merged_layer")
 
 # deep: 
 
+deep_input <- layer_input(shape = max_length, name = "deep_input")
+#deep_variety_input <- layer_input(shape = max_length, name = "deep_variety_input") #following blog example. They didn't use this.
 
+embedding <- layer_embedding(input_dim = vocab_size,            # "dictionary" size
+                             output_dim = 8, 
+                             input_length = max_seq_length) %>% # the length of the sequence that is being fed in
+  layer_flatten(name = "embedding")
 
+deep_network <- embedding %>% 
+  layer_dense(units = 1024, activation = "relu", kernel_regularizer = regularizer_l2(lambda), name = "layer1") %>%
+  layer_dense(units =  512, activation = "relu", kernel_regularizer = regularizer_l2(lambda), name = "layer2") %>%
+  layer_dense(units =  256, activation = "relu", kernel_regularizer = regularizer_l2(lambda), name = "layer3") %>%
+  
+
+# combine wide & deep:
+
+label <- layer_add(list(wide_merged_layer, deep_network), name = "wide_deep_sum") %>%
+  layer_dense(units = 1, 
+              activation = "sigmoid", 
+              kernel_initializer = "lecun_uniform",
+              name = "prediction") 
+
+model <- keras_model(list(user_input, item_input), label)
