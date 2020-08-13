@@ -114,7 +114,7 @@ deep_network <-
 # Combine: Wide & Deep ----------------------------------------------------
 
 output <- 
-  layer_concatenate(list(wide_network, deep_network), name = "wide_deep_concat") %>%
+  layer_add(list(wide_network, deep_network), name = "wide_deep_concat") %>%
   layer_dense(units = 1, name = "prediction") 
 
 model <- keras_model(list(wide_text_input, wide_variety_input, deep_text_input), output)
@@ -146,3 +146,20 @@ history <-
 #TODO: There is some work to be done here to create a validation set to 
 #      avoid over-fitting & callbacks for choosing best model. Stopping now
 #      because my goal was simply to follow blog post.
+
+
+# Evaluate model ----------------------------------------------------------
+
+model %>% evaluate(list(test_text_binary_matrix, 
+                        test_variety_binary_matrix, 
+                        test_text_sequence_matrix), 
+                   as.array(test$price))
+
+# Generate predictions for test data --------------------------------------
+
+predictions <- 
+  model %>% predict(list(test_text_binary_matrix, 
+                         test_variety_binary_matrix, 
+                         test_text_sequence_matrix))
+
+sprintf('Average prediction difference: ', diff / num_predictions)
