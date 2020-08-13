@@ -84,40 +84,38 @@ test_variety_binary_matrix  <- to_categorical(as.integer(test$variety), num_vari
 
 wide_text_input <- layer_input(shape = vocab_size, name = "wide_text_input") 
 wide_variety_input  <- layer_input(shape = num_varieties, name = "wide_variety_input") 
-wide_merged_layer <- 
+wide_network <- 
   layer_concatenate(list(wide_text_input, wide_variety_input), name = "wide_merged_layer") %>% 
-  layer_dense(units = 256, activation = "relu", name = "wide_layer_dense")
+  layer_dense(units = 256, activation = "relu", name = "wide_layer_dense1") %>%
+  layer_dense(units = 1, name = "wide_layer_dense2")
 
 
 # Deep Network ------------------------------------------------------------
 
 deep_text_input <- layer_input(shape = max_length, name = "deep_input")
-#deep_variety_input <- layer_input(shape = max_length, name = "deep_variety_input") #following blog example. They didn't use this.
 
 deep_network <- 
   deep_text_input %>%
   layer_embedding(input_dim = vocab_size,    # "dictionary" size
-                  output_dim = 1024, 
+                  output_dim = 8, #1024, 
                   input_length = max_length, # the length of the sequence that is being fed in
                   name = "embedding") %>%    # output shape will be batch size, input_length, output_dim
   layer_flatten(name = "flattened_embedding") %>% 
-  layer_dense(units = 1024, activation = "relu", name = "layer1") %>%
-  layer_dense(units =  512, activation = "relu", name = "layer2") %>%
-  layer_dense(units =  256, activation = "relu", name = "layer3") 
+  layer_dense(units = 1, name = "layer1")
+  #layer_dense(units = 1024, activation = "relu", name = "layer1") %>%
+  #layer_dense(units =  512, activation = "relu", name = "layer2") %>%
+  #layer_dense(units =  256, activation = "relu", name = "layer3") 
 
 #TODO: 
 # - Try a pre-trained word embedding.  
 # - Author of blog post uses embedding dim of 8 and doesn't use stacked layers after embedding.
-# - Author added a 1-dimentional layer to each of wide and deep networks and then combined those. 
+# - Author added a 1-dim layer to each of wide and deep networks and then combined those. 
 
 # Combine: Wide & Deep ----------------------------------------------------
 
 response <- 
-  layer_add(list(wide_merged_layer, deep_network), name = "wide_deep_sum") %>%
-  layer_dense(units = 1, 
-              activation = "sigmoid", 
-              kernel_initializer = "lecun_uniform",
-              name = "prediction") 
+  layer_concatenate(list(wide_network, deep_network), name = "wide_deep_concat") %>%
+  layer_dense(units = 1, name = "prediction") 
 
 model <- keras_model(list(wide_text_input, wide_variety_input, deep_text_input), response)
 
