@@ -13,12 +13,12 @@ library(keras)
 # Read & wrangle data ------------------------------------------------------
 
 # Dataset originally from Kaggle: https://www.kaggle.com/zynicide/wine-reviews/data
-# Also available for download from TidyTuesday repo
+# Also available for download from TidyTuesday GitHub repo
 wine_ratings <- readr::read_csv("https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2019/2019-05-28/winemag-data-130k-v2.csv")
 
 #Data cleaning
 wine_ratings %<>% 
-  drop_na(price, description, variety) %>%  
+  drop_na(country, price, description, variety) %>%  
   mutate_at(c("country", "province", "variety", "winery", "region_1", "region_2"), as_factor)
 
 #Keep only the most common varieties with atleast "threshold" occurrences
@@ -92,14 +92,9 @@ deep_network <-
                   name = "embedding") %>%    # output shape will be batch size, input_length, output_dim
   layer_flatten(name = "flattened_embedding") %>% 
   layer_dense(units = 1, name = "layer1")
-  #layer_dense(units = 1024, activation = "relu", name = "layer1") %>%
-  #layer_dense(units =  512, activation = "relu", name = "layer2") %>%
-  #layer_dense(units =  256, activation = "relu", name = "layer3") 
 
 #TODO: 
 # - Try a pre-trained word embedding.  
-# - Author of blog post uses embedding dim of 8 and doesn't use stacked layers after embedding.
-# - Author added a 1-dim layer to each of wide and deep networks and then combined those. 
 
 # Combine: Wide & Deep ----------------------------------------------------
 
@@ -128,14 +123,14 @@ history <-
              wide_variety_input = train_variety_binary_matrix, 
              deep_text_input = train_text_sequence_matrix),
     y = as.array(train$price),
-    epochs = 20,
+    epochs = 15,
     batch_size = 128, 
     shuffle = TRUE
   ) 
 
 #TODO: There is some work to be done here to create a validation set to 
-#      avoid over-fitting & callbacks for choosing best model. Stopping now
-#      because my goal was simply to follow blog post.
+#      avoid over-fitting. Stopping here because my goal was simply 
+#      to follow blog post.
 
 
 # Evaluate model ----------------------------------------------------------
@@ -152,8 +147,34 @@ predictions <-
   predict(list(test_text_binary_matrix, 
                          test_variety_binary_matrix, 
                          test_text_sequence_matrix)) %>%
-  bind_cols(test %>% select(price, description)) %>%
-  mutate(diff = abs(TODO - price))
+  bind_cols(test %>% select(price, description, variety)) %>%
+  rename(pred = 1) %>% #rename 1st column to "pred"
+  mutate(diff = abs(pred - price))
   
 
-sprintf('Average prediction difference: ', mean(predictions$diff) )
+#Plot a sample of the prices and their associated prediction:
+sample4inspection <- slice_sample(predictions, n = 100)
+ggplot(sample4inspection, aes(x = 1:nrow(sample4inspection))) +
+  geom_line(aes(y = pred), color = "darkred", linetype="twodash") +
+  geom_line(aes(y = price), color = "steelblue") +
+  xlab("Sample number") +
+  ylab("Dollars") +
+  ggtitle("Price (blue line) vs Prediction (red dashed line)")
+  
+# Print some predictions and their descriptions:
+for(i in 1:nrow(sample4inspection)){
+  print(sprintf("Sample: %d | Price: %.0f | Prediction: %.0f | Description: %s", 
+                i,
+                sample4inspection[i,"price"], 
+                round(sample4inspection[i,"pred"]), 
+                sample4inspection[i,"description"]))
+}
+
+# Look at difference between price and predicted price:
+sprintf('Average prediction difference: %f', mean(predictions$diff) )
+sprintf('Median prediction difference: %f', median(predictions$diff) )
+
+# Look at best and worst predictions: 
+slice_min(predictions, order_by = diff, n = 5)
+slice_max(predictions, order_by = diff, n = 5)
+
