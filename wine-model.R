@@ -87,11 +87,18 @@ deep_text_input <- layer_input(shape = max_length, name = "deep_text_input")
 deep_network <- 
   deep_text_input %>%
   layer_embedding(input_dim = vocab_size,    # "dictionary" size
-                  output_dim = 8, #1024, 
+                  output_dim = 1024, 
                   input_length = max_length, # the length of the sequence that is being fed in
                   name = "embedding") %>%    # output shape will be batch size, input_length, output_dim
   layer_flatten(name = "flattened_embedding") %>% 
-  layer_dense(units = 1, name = "layer1")
+  layer_dense(units = 540, activation = "relu", name = "layer1") %>%
+  layer_dense(units = 256, activation = "relu", name = "layer2") %>%
+  layer_dense(units = 128, activation = "relu", name = "layer3") %>%
+  layer_dense(units = 64, activation = "relu", name = "layer4") %>%
+  layer_dense(units = 32, activation = "relu", name = "layer5") %>%
+  layer_dense(units = 16, activation = "relu", name = "layer6") %>%
+  layer_dense(units = 8, activation = "relu", name = "layer7") %>%
+  layer_dense(units = 1, name = "layer_last")
 
 #TODO: 
 # - Try a pre-trained word embedding.  
@@ -123,7 +130,7 @@ history <-
              wide_variety_input = train_variety_binary_matrix, 
              deep_text_input = train_text_sequence_matrix),
     y = as.array(train$price),
-    epochs = 15,
+    epochs = 5,
     batch_size = 128, 
     shuffle = TRUE
   ) 
