@@ -40,7 +40,7 @@ desc_summary <-
   sapply(length) %>% 
   summary()
 
-vocab_size <- 12000 #Only consider the top words (by freq)
+vocab_size <- 1200 #Only consider the top words (by freq)
 max_length <- desc_summary["Max."] #record length of longest description
 
 #---
@@ -131,13 +131,6 @@ summary(model)
 
 # Train model -------------------------------------------------------------
 
-# First define callbacks to stop model early when validation loss increases and to save best model
-#callback_list <- list(
-#  callback_early_stopping(patience = 2),
-#  callback_model_checkpoint(filepath = "model.h5", monitor = "val_loss", save_best_only = TRUE)
-#)
-
-# Train model
 history <- 
   model %>% 
   fit(
@@ -150,7 +143,7 @@ history <-
 #    validation_data = list(list(user_input = as.array(validation$user), 
 #                                item_input = as.array(validation$item)), 
 #                           as.array(validation$label)),
-    shuffle = TRUE, 
+    shuffle = TRUE
 #    callbacks = callback_list
   ) 
 
