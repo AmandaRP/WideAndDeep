@@ -12,6 +12,8 @@ library(keras)
 
 # Read & wrangle data ------------------------------------------------------
 
+# Dataset originally from Kaggle: https://www.kaggle.com/zynicide/wine-reviews/data
+# Also available for download from TidyTuesday repo
 wine_ratings <- readr::read_csv("https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2019/2019-05-28/winemag-data-130k-v2.csv")
 
 #Data cleaning
@@ -22,8 +24,9 @@ wine_ratings %<>%
 #Keep only the most common varieties with atleast "threshold" occurrences
 threshold <- 500
 most_common_vareties <- wine_ratings %>% count(variety) %>% filter(n > threshold) %>% select(variety)
-wine_ratings %<>% right_join(most_common_vareties)
-
+wine_ratings %<>% 
+  right_join(most_common_vareties) %>%
+  mutate(variety = fct_drop(variety)) # drop factors that are no longer present
 
 # Split data into train and test ------------------------------------------
 
@@ -33,7 +36,7 @@ test <- wine_ratings %>% anti_join(train, by = "X1")
 
 # Pre-process (vectorize) data --------------------------------------------
 
-#Look at distribution of length of reviews 
+#Look at distribution of length of descriptions 
 desc_summary <- 
   wine_ratings$description %>% 
   strsplit(" ") %>% 
@@ -41,21 +44,8 @@ desc_summary <-
   summary()
 
 vocab_size <- 12000 #Only consider the top words (by freq)
-max_length <- desc_summary["Max."] #record length of longest description
+max_length <- desc_summary["Max."] # length of longest description
 
-#---
-#TODO: delete this section if I don't use it.
-#TODO: understand this step better (used in blog post). why not use text_tokenizer %>% fit_text_tokenizer? 
-#text_vectorization <- layer_text_vectorization(
-#  max_tokens = vocab_size, 
-#  output_sequence_length = max_length, 
-#)
-#Learn vocabulary:
-#text_vectorization %>% 
-#  adapt(train$description) 
-#look at vocab:
-#get_vocabulary(text_vectorization) #TODO: Stop words weren't removed. Need to worry?
-#---
 
 # Tokenize description text
 tokenizer <- 
@@ -74,8 +64,8 @@ test_text_sequence_matrix <-
   texts_to_sequences(tokenizer, test$description) %>%
   pad_sequences(maxlen = max_length, padding = "post") 
 
-# Convert wine variety to one-hot vectors for wide network (matrix dim is number of samples by number of varieties):
-num_varieties <- length(levels(train$variety))
+# Convert wine variety to one-hot vectors for wide network (resulting matrix dim is number of samples by number of varieties):
+num_varieties <- length(levels(train$variety)) +1
 train_variety_binary_matrix <- to_categorical(as.integer(train$variety), num_varieties)
 test_variety_binary_matrix  <- to_categorical(as.integer(test$variety), num_varieties) 
 
@@ -114,7 +104,7 @@ deep_network <-
 # Combine: Wide & Deep ----------------------------------------------------
 
 output <- 
-  layer_add(list(wide_network, deep_network), name = "wide_deep_concat") %>%
+  layer_concatenate(list(wide_network, deep_network), name = "wide_deep_concat") %>%
   layer_dense(units = 1, name = "prediction") 
 
 model <- keras_model(list(wide_text_input, wide_variety_input, deep_text_input), output)
@@ -138,7 +128,7 @@ history <-
              wide_variety_input = train_variety_binary_matrix, 
              deep_text_input = train_text_sequence_matrix),
     y = as.array(train$price),
-    epochs = 10,
+    epochs = 20,
     batch_size = 128, 
     shuffle = TRUE
   ) 
@@ -158,8 +148,12 @@ model %>% evaluate(list(test_text_binary_matrix,
 # Generate predictions for test data --------------------------------------
 
 predictions <- 
-  model %>% predict(list(test_text_binary_matrix, 
+  model %>% 
+  predict(list(test_text_binary_matrix, 
                          test_variety_binary_matrix, 
-                         test_text_sequence_matrix))
+                         test_text_sequence_matrix)) %>%
+  bind_cols(test %>% select(price, description)) %>%
+  mutate(diff = abs(TODO - price))
+  
 
-sprintf('Average prediction difference: ', diff / num_predictions)
+sprintf('Average prediction difference: ', mean(predictions$diff) )
