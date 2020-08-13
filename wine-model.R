@@ -108,6 +108,7 @@ deep_network <-
 #TODO: 
 # - Try a pre-trained word embedding.  
 # - Author of blog post uses embedding dim of 8 and doesn't use stacked layers after embedding.
+# - Author added a 1-dimentional layer to each of wide and deep networks and then combined those. 
 
 # Combine: Wide & Deep ----------------------------------------------------
 
@@ -146,7 +147,7 @@ history <-
              wide_variety_input = train_variety_binary_matrix, 
              deep_text_input = train_text_sequence_matrix),
     y = as.array(train$price),
-    epochs = 10,
+    epochs = 2,
     batch_size = 128, 
 #    validation_data = list(list(user_input = as.array(validation$user), 
 #                                item_input = as.array(validation$item)), 
