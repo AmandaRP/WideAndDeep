@@ -58,24 +58,26 @@ max_length <- desc_summary["Max."] #record length of longest description
 #---
 
 # Tokenize description text
-#TODO: Should I use hashing trick? See page 168.
 tokenizer <- 
   text_tokenizer(num_words = vocab_size) %>% 
   fit_text_tokenizer(train$description)
+
+# Binary description matrix for wide network:
+train_text_binary_matrix <- texts_to_matrix(tokenizer, train$description, mode = "binary") 
+test_text_binary_matrix <- texts_to_matrix(tokenizer, test$description, mode = "binary")
+
+# Sequence description matrix for deep network:
 train_text_sequence_matrix <- 
   texts_to_sequences(tokenizer, train$description) %>%
   pad_sequences(maxlen = max_length, padding = "post") #Returns a matrix. numcols is equal to max seq length (shorter seqns padded with 0).
 test_text_sequence_matrix <- 
   texts_to_sequences(tokenizer, test$description) %>%
   pad_sequences(maxlen = max_length, padding = "post") 
-train_text_binary_matrix <- texts_to_matrix(tokenizer, train$description, mode = "binary") #binary best here b/c need to concat with other binary vectors
-test_text_binary_matrix <- texts_to_matrix(tokenizer, test$description, mode = "binary")
 
-# Convert wine variety to one-hot vectors (matrix dim is number of samples by number of varieties)
+# Convert wine variety to one-hot vectors for wide network (matrix dim is number of samples by number of varieties):
 num_varieties <- length(levels(train$variety))
-variety_tokenizer <- text_tokenizer(num_words = num_varieties) %>% fit_text_tokenizer(train$variety)
-train_variety_binary_matrix <- texts_to_matrix(variety_tokenizer, train$variety, mode = "binary") 
-test_variety_binary_matrix <- texts_to_matrix(variety_tokenizer, test$variety, mode = "binary") 
+train_variety_binary_matrix <- to_categorical(as.integer(train$variety), num_varieties)
+test_variety_binary_matrix  <- to_categorical(as.integer(test$variety), num_varieties) 
 
 
 # Wide network ------------------------------------------------------------
@@ -83,8 +85,8 @@ test_variety_binary_matrix <- texts_to_matrix(variety_tokenizer, test$variety, m
 wide_text_input <- layer_input(shape = vocab_size, name = "wide_text_input") 
 wide_variety_input  <- layer_input(shape = num_varieties, name = "wide_variety_input") 
 wide_merged_layer <- 
-  layer_concatenate(list(wide_text_input, wide_variety_input)) %>% 
-  layer_dense(units = 256, activation = "relu", name = "wide_merged_layer")
+  layer_concatenate(list(wide_text_input, wide_variety_input), name = "wide_merged_layer") %>% 
+  layer_dense(units = 256, activation = "relu", name = "wide_layer_dense")
 
 
 # Deep Network ------------------------------------------------------------
@@ -97,12 +99,15 @@ deep_network <-
   layer_embedding(input_dim = vocab_size,    # "dictionary" size
                   output_dim = 1024, 
                   input_length = max_length, # the length of the sequence that is being fed in
-                  name = "embedding") %>%    
+                  name = "embedding") %>%    # output shape will be batch size, input_length, output_dim
   layer_flatten(name = "flattened_embedding") %>% 
   layer_dense(units = 1024, activation = "relu", name = "layer1") %>%
   layer_dense(units =  512, activation = "relu", name = "layer2") %>%
   layer_dense(units =  256, activation = "relu", name = "layer3") 
-  
+
+#TODO: 
+# - Try a pre-trained word embedding.  
+# - Author of blog post uses embedding dim of 8 and doesn't use stacked layers after embedding.
 
 # Combine: Wide & Deep ----------------------------------------------------
 
@@ -124,3 +129,32 @@ model %>% compile(
 )
 
 summary(model)
+
+# Train model -------------------------------------------------------------
+
+# First define callbacks to stop model early when validation loss increases and to save best model
+#callback_list <- list(
+#  callback_early_stopping(patience = 2),
+#  callback_model_checkpoint(filepath = "model.h5", monitor = "val_loss", save_best_only = TRUE)
+#)
+
+# Train model
+history <- 
+  model %>% 
+  fit(
+    x = list(wide_text_input = train_text_binary_matrix, 
+             wide_variety_input = train_variety_binary_matrix, 
+             deep_text_input = train_text_sequence_matrix),
+    y = as.array(train$price),
+    epochs = 10,
+    batch_size = 128, 
+#    validation_data = list(list(user_input = as.array(validation$user), 
+#                                item_input = as.array(validation$item)), 
+#                           as.array(validation$label)),
+    shuffle = TRUE, 
+#    callbacks = callback_list
+  ) 
+
+#TODO: There is some work to be done here to create a validation set to ensure
+#      avoid over-fitting & callbacks for choosing best model. Stopping now
+#      because my goal was simply to follow blog post.
