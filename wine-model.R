@@ -40,7 +40,7 @@ desc_summary <-
   sapply(length) %>% 
   summary()
 
-vocab_size <- 1200 #Only consider the top words (by freq)
+vocab_size <- 12000 #Only consider the top words (by freq)
 max_length <- desc_summary["Max."] #record length of longest description
 
 #---
@@ -92,7 +92,7 @@ wide_network <-
 
 # Deep Network ------------------------------------------------------------
 
-deep_text_input <- layer_input(shape = max_length, name = "deep_input")
+deep_text_input <- layer_input(shape = max_length, name = "deep_text_input")
 
 deep_network <- 
   deep_text_input %>%
@@ -113,11 +113,11 @@ deep_network <-
 
 # Combine: Wide & Deep ----------------------------------------------------
 
-response <- 
+output <- 
   layer_concatenate(list(wide_network, deep_network), name = "wide_deep_concat") %>%
   layer_dense(units = 1, name = "prediction") 
 
-model <- keras_model(list(wide_text_input, wide_variety_input, deep_text_input), response)
+model <- keras_model(list(wide_text_input, wide_variety_input, deep_text_input), output)
 
 # Compile model ---------------------------------------------------
 
@@ -138,15 +138,11 @@ history <-
              wide_variety_input = train_variety_binary_matrix, 
              deep_text_input = train_text_sequence_matrix),
     y = as.array(train$price),
-    epochs = 2,
+    epochs = 10,
     batch_size = 128, 
-#    validation_data = list(list(user_input = as.array(validation$user), 
-#                                item_input = as.array(validation$item)), 
-#                           as.array(validation$label)),
     shuffle = TRUE
-#    callbacks = callback_list
   ) 
 
-#TODO: There is some work to be done here to create a validation set to ensure
+#TODO: There is some work to be done here to create a validation set to 
 #      avoid over-fitting & callbacks for choosing best model. Stopping now
 #      because my goal was simply to follow blog post.
