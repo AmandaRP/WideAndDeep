@@ -100,6 +100,9 @@ deep_network <-
   layer_dense(units = 8, activation = "relu", name = "layer7") %>%
   layer_dense(units = 1, name = "layer_last")
 
+#Note:
+# - The deep layers above were not included in the example tensorflow blog post.
+
 #TODO: 
 # - Try a pre-trained word embedding.  
 
