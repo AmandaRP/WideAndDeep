@@ -1,0 +1,42 @@
+---
+title: "Predict Google Reviews"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+#user_data <- jsonlite::stream_in(gzcon(url("http://deepyeti.ucsd.edu/jmcauley/datasets/googlelocal/users.clean.json.gz")))
+#tmp <- tempfile()
+#download.file("http://deepyeti.ucsd.edu/jmcauley/datasets/googlelocal/users.clean.json.gz", tmp)
+#user_data <- jsonlite::stream_in(gzfile(tmp))
+download.file("http://deepyeti.ucsd.edu/jmcauley/datasets/googlelocal/users.clean.json.gz", "users.clean.json.gz")
+```
+
+Issue: The file is not actually json. It's some sort of python literal. Parse using python:
+
+```{python}
+import pandas as pd
+import ast
+import gzip
+
+# open with gzip
+with gzip.open( 'users.clean.json.gz', 'r' ) as f:
+    lines = f.readlines()
+
+# and format for reading into pandas
+out = []
+for line in lines:
+    d = ast.literal_eval(line.decode("utf-8"))
+    out.append(d)
+
+# and read into pandas
+df = pd.DataFrame( out )
+
+df
+```
+
+
+
