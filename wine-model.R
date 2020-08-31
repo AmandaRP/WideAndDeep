@@ -135,6 +135,7 @@ history <-
     y = as.array(train$price),
     epochs = 10,
     batch_size = 128
+#    validation_split = 0.2
 #    shuffle = TRUE
   ) 
 
